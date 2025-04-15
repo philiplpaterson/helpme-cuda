@@ -7,3 +7,6 @@ helPME.files
 helPME.includes
 helPME.cflags
 helPME.cxxflags
+
+# Output Files
+*.out
