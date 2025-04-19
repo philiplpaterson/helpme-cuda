@@ -10,5 +10,5 @@ helPME.cxxflags
 
 # Output Files
 *.out
-settings.json
+.vscode
 *code-workspace
