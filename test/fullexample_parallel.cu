@@ -1,5 +1,3 @@
-
-
 #include <cassert>
 #include <stdlib.h>
 #include <cuda.h>
@@ -8,7 +6,7 @@
 #include <mpi.h>
 
 
-extern "C" void run_code(int numThreads, int myRank, int nx, int ny, int nz)
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz)
 {
     const double tolerance = 1e-8;
 
@@ -93,6 +91,3 @@ extern "C" void run_code(int numThreads, int myRank, int nx, int ny, int nz)
     pmeP.reset();  // This ensures that the PME object cleans up its MPI data BEFORE MPI_Finalize is called;
 
 }
-
-
-

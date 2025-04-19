@@ -4287,9 +4287,6 @@ class PMEInstance {
                 
                 cudaMemcpy(boxVecs_.data_, cudadata, sizeof(int), cudaMemcpyDeviceToHost);
 
-
-
-
                 recVecs_ = boxVecs_.inverse();
             } else if (latticeType == LatticeType::XAligned) {
                 boxVecs_(0, 0) = A;

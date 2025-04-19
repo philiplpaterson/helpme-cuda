@@ -12,3 +12,4 @@ helPME.cxxflags
 *.out
 .vscode
 *code-workspace
+*.o

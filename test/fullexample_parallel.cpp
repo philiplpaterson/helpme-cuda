@@ -18,7 +18,7 @@
 // #include "helpme.h"
 // #endif
 
-extern "C"  void run_code(int numThreads, int myRank, int nx, int ny, int nz);
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz);
 
 int main(int argc, char* argv[]) {
     int nx;
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
     int myRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-    run_code(numThreads, myRank, nx, ny, nz);
+    run_fullexample_parallel(numThreads, myRank, nx, ny, nz);
     // const double tolerance = 1e-8;
 
     // float kappa = 0.3;
