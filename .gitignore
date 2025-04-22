@@ -13,3 +13,4 @@ helPME.cxxflags
 .vscode
 *code-workspace
 *.o
+test/CMakeFiles
