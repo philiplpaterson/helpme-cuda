@@ -11,6 +11,7 @@
 #include <cassert>
 #include <iostream>
 #include <stdlib.h>
+#include <chrono>
 
 // #if BUILD_STANDALONE
 // #include "helpme_standalone.h"
@@ -18,7 +19,9 @@
 // #include "helpme.h"
 // #endif
 
-extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz);
+#define TIME_COMPONENTS 1
+
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling);
 
 int main(int argc, char* argv[]) {
     int nx;
@@ -37,13 +40,32 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+    printf("test\n");
+
+#if TIME_COMPONENTS
+    std::chrono::duration<double> splineTime;
+    std::chrono::duration<double> spreadTime;
+    std::chrono::duration<double> transformTime;
+    std::chrono::duration<double> convolveTime;
+    std::chrono::duration<double> probeTime;
+#endif
+
     MPI_Init(NULL, NULL);
     int numNodes;
     MPI_Comm_size(MPI_COMM_WORLD, &numNodes);
     int myRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-    run_fullexample_parallel(numThreads, myRank, nx, ny, nz);
+    printf("test2\n");
+
+    // weak scaling
+    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // strong scaling
+    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false);
+
     // const double tolerance = 1e-8;
 
     // float kappa = 0.3;

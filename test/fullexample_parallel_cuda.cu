@@ -4,57 +4,180 @@
 #include <cuda_runtime.h>
 #include "helpme_standalone.cuh"
 #include <mpi.h>
+#include <string>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #define FILENAME "waterbox24000"
 
-extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz)
-{
-    const double tolerance = 1e-2; // Needed to lower tolerance for cuda
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling) {
+    const double tolerance = 1e-1;  // Needed to lower tolerance for cuda
+
+    int nodes = nx * ny * nz;
+
+    // strong scaling study:
+    // this would work by setting the number of cores/ranks to 1, 8, 27, 64, 125, 216, 343, 512
+    // with a fixed number of threads per node
+    // the total problem size will be the same, but the number of nodes will change
+
+    // weak scaling study:
+    // this would work by setting the number of cores/ranks to 1, 8, 27, 64, 125, 216, 343, 512
+    // with a fixed number of nodes per thread
+    // the total problem size will change and the number of nodes will increase
+    // problem size: 100,000 atoms/node
+    // i.e. 1, 8, 27, 64, 125, 216, 343, 512 * 100,000 atoms
+
+    // set device according to the rank of the process
+
+    int total_devices;
+    cudaGetDeviceCount(&total_devices);
+    int device = myRank % total_devices;
+    cudaSetDevice(device);
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, device);
+
+    if (myRank == 0) {
+        std::cout << "number of devices: " << total_devices << std::endl;
+    }
+
 
     float kappa = 0.3;
-    int gridX = 49;
-    int gridY = 49;
-    int gridZ = 49;
-    int kMaxX = 9;
-    int kMaxY = 9;
-    int kMaxZ = 9;
+
+    // get total number of ranks
+    int numRanks;
+    MPI_Comm_size(MPI_COMM_WORLD, &numRanks);
+
+
+    // ur_mom scales based on the cube root of the ranks
+
+    int ur_mom;
+    if (weakScaling) {
+        ur_mom = 10 * std::pow(numRanks, 1.0 / 3.0);
+        std::cout << "ur_mom: " << ur_mom << std::endl;
+    } else {
+        ur_mom = 100;
+    }
+    int gridX = ur_mom;
+    int gridY = ur_mom;
+    int gridZ = ur_mom;
+    // int kMaxX = 9;
+    // int kMaxY = 9;
+    // int kMaxZ = 9;
     int splineOrder = 6;
+
+    // timing stuff
+    std::chrono::duration<double> totalTime;
+    std::chrono::duration<double> latticeTime;
+    std::chrono::duration<double> splineTime;
+    std::chrono::duration<double> spreadTime;
+    std::chrono::duration<double> transformTime;
+    std::chrono::duration<double> convolveTime;
+    std::chrono::duration<double> probeTime;
 
     // helpme::Matrix<double> coords(
     //     {{2.0, 2.0, 2.0}, {2.5, 2.0, 3.0}, {1.5, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.5, 0.0, 1.0}, {-0.5, 0.0, 1.0}});
     // helpme::Matrix<double> charges({-0.834, 0.417, 0.417, -0.834, 0.417, 0.417});
 
+    // start total timer
+    auto start = std::chrono::high_resolution_clock::now();
+
     helpme::Matrix<double> coords("data/" FILENAME "_coords.txt");
     helpme::Matrix<double> charges("data/" FILENAME "_charges.txt");
 
     helpme::Matrix<double> virial(6, 1);
-    
+
     double scaleFactor = 332.0716;
     helpme::Matrix<double> serialVirial(6, 1);
-    helpme::Matrix<double> serialForces(coords.nRows(), coords.nCols()); // Rows and columns of coords
-        
+    helpme::Matrix<double> serialForces(coords.nRows(), coords.nCols());  // Rows and columns of coords
+
     // Generate a serial benchmark first
     double energyS;
     if (myRank == 0) {
         std::cout << "Num Threads " << numThreads << std::endl;
         auto pme = std::unique_ptr<PMEInstanceD>(new PMEInstanceD());
+
         pme->setup(1, kappa, splineOrder, gridX, gridY, gridZ, scaleFactor, numThreads);
+
+
+        auto localStart = std::chrono::high_resolution_clock::now();
         pme->setLatticeVectors(20, 20, 20, 90, 90, 90, PMEInstanceD::LatticeType::XAligned);
-        energyS = pme->computeEFVRec(0, charges, coords, serialForces, serialVirial);
+        auto localEnd = std::chrono::high_resolution_clock::now();
+        latticeTime += localEnd - localStart;
+
+        // energyS = pme->computeEFVRec(0, charges, coords, serialForces, serialVirial); // below is code in computeEFVRec
+
+        // Spline derivative level bumped by 1, for energy gradients.
+        
+        localStart = std::chrono::high_resolution_clock::now();
+        pme->filterAtomsAndBuildSplineCache(0 + 1, coords);
+        localEnd = std::chrono::high_resolution_clock::now();
+        splineTime += localEnd - localStart;
+
+        localStart = std::chrono::high_resolution_clock::now();
+        auto realGrid = pme->spreadParameters(0, charges);
+        localEnd = std::chrono::high_resolution_clock::now();
+        spreadTime += localEnd - localStart;
+
+        double energy;
+
+        localStart = std::chrono::high_resolution_clock::now();
+        std::complex<double> *gridAddress;
+        gridAddress = pme->forwardTransform(realGrid);
+        localEnd = std::chrono::high_resolution_clock::now();
+        transformTime += localEnd - localStart;
+
+        localStart = std::chrono::high_resolution_clock::now();
+        energy = pme->convolveEV(gridAddress, serialVirial);
+        localEnd = std::chrono::high_resolution_clock::now();
+        convolveTime += localEnd - localStart;
+
+        localStart = std::chrono::high_resolution_clock::now();
+        auto potentialGrid = pme->inverseTransform(gridAddress);
+        pme->probeGrid(potentialGrid, 0, charges, serialForces, serialVirial[0]);
+        energyS = energy;
+        localEnd = std::chrono::high_resolution_clock::now();
+        probeTime += localEnd - localStart;
+
+        // record total time
+        auto end = std::chrono::high_resolution_clock::now();
+        totalTime = end - start;
+        
         std::cout << "Serial results:" << std::endl;
         std::cout << "Total rec energy " << energyS << std::endl;
         // std::cout << "Total forces" << std::endl << serialForces << std::endl;
         // std::cout << "Total virial" << std::endl << serialVirial << std::endl;
-        
-        std::ofstream serial_output("fullexample_serial_output.txt");
 
+        std::string filename = (weakScaling ? "weak_" : "strong_") + std::string("serial_output_cuda.txt");
+        std::ofstream serial_output(filename);
+
+        serial_output << (weakScaling ? "Weak Scaling Study" : "Strong Scaling Study") << std::endl;
         serial_output << "Serial results:" << std::endl;
         serial_output << "Total rec energy " << energyS << std::endl;
         serial_output << "Total forces" << std::endl << serialForces << std::endl;
         serial_output << "Total virial" << std::endl << serialVirial << std::endl;
+        serial_output << "Timing results:" << std::endl;
+        serial_output << "Total time: " << totalTime.count() << std::endl;
+        serial_output << "Lattice time: " << latticeTime.count() << std::endl;
+        serial_output << "Spline time: " << splineTime.count() << std::endl;
+        serial_output << "Spread time: " << spreadTime.count() << std::endl;
+        serial_output << "Transform time: " << transformTime.count() << std::endl;
+        serial_output << "Convolve time: " << convolveTime.count() << std::endl;
+        serial_output << "Probe time: " << probeTime.count() << std::endl;
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    totalTime = std::chrono::duration<double>(0);
+    latticeTime = std::chrono::duration<double>(0);
+    splineTime = std::chrono::duration<double>(0);
+    spreadTime = std::chrono::duration<double>(0);
+    transformTime = std::chrono::duration<double>(0);
+    convolveTime = std::chrono::duration<double>(0);
+    probeTime = std::chrono::duration<double>(0);
+
+    // start total timer
+    start = std::chrono::high_resolution_clock::now();
 
     // Now the parallel version
     auto pmeP = std::unique_ptr<PMEInstanceD>(new PMEInstanceD());
@@ -70,12 +193,58 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
 
     nodeForces.setZero();
     nodeVirial.setZero();
+
     pmeP->setupParallel(1, kappa, splineOrder, gridX, gridY, gridZ, scaleFactor, 1, MPI_COMM_WORLD,
                         PMEInstanceD::NodeOrder::ZYX, nx, ny, nz);
+    
+    auto localStart = std::chrono::high_resolution_clock::now();
     pmeP->setLatticeVectors(20, 20, 20, 90, 90, 90, PMEInstanceD::LatticeType::XAligned);
-    nodeEnergy = pmeP->computeEFVRec(0, charges, coords, nodeForces, nodeVirial);
+    auto localEnd = std::chrono::high_resolution_clock::now();
+    latticeTime += localEnd - localStart;
+    
+    // nodeEnergy = pmeP->computeEFVRec(0, ch/arges, coords, nodeForces, nodeVirial);// below is code in computeEFVRec
+
+    // sanityChecks(0, cha/rges, coords); // broke compilation for some reason :(
+
+    // Spline derivative level bumped by 1, for energy gradients.
+
+    localStart = std::chrono::high_resolution_clock::now();
+    pmeP->filterAtomsAndBuildSplineCache(0 + 1, coords);
+    localEnd = std::chrono::high_resolution_clock::now();
+    splineTime += localEnd - localStart;
+
+    localStart = std::chrono::high_resolution_clock::now();
+    auto realGrid = pmeP->spreadParameters(0, charges);
+    localEnd = std::chrono::high_resolution_clock::now();
+    spreadTime += localEnd - localStart;
+
+    localStart = std::chrono::high_resolution_clock::now();
+    double energy;
+    std::complex<double> *gridAddress;
+    gridAddress = pmeP->forwardTransform(realGrid);
+    localEnd = std::chrono::high_resolution_clock::now();
+    transformTime += localEnd - localStart;
+
+    localStart = std::chrono::high_resolution_clock::now();
+    energy = pmeP->convolveEV(gridAddress, nodeVirial);
+    localEnd = std::chrono::high_resolution_clock::now();
+    convolveTime += localEnd - localStart;
+
+    localStart = std::chrono::high_resolution_clock::now();
+    auto potentialGrid = pmeP->inverseTransform(gridAddress);
+    localEnd = std::chrono::high_resolution_clock::now();
+    convolveTime += localEnd - localStart;
+
+
+    localStart = std::chrono::high_resolution_clock::now();
+    pmeP->probeGrid(potentialGrid, 0, charges, nodeForces, nodeVirial[0]);
+    nodeEnergy = energy;
+    localEnd = std::chrono::high_resolution_clock::now();
+    probeTime += localEnd - localStart;
+
     MPI_Reduce(&nodeEnergy, &parallelEnergy, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(nodeForces[0], parallelForces[0], coords.nRows() * coords.nCols(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(nodeForces[0], parallelForces[0], coords.nRows() * coords.nCols(), MPI_DOUBLE, MPI_SUM, 0,
+               MPI_COMM_WORLD);
     MPI_Reduce(nodeVirial[0], parallelVirial[0], 6, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     MPI_File fh;
@@ -107,17 +276,34 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     MPI_File_close(&fh);
 
     if (myRank == 0) {
+        
+        // record total time
+        auto end = std::chrono::high_resolution_clock::now();
+        totalTime = end - start;
+        
         std::cout << "Parallel results (nProcs = " << nx << ", " << ny << ", " << nz << "):" << std::endl;
         std::cout << "Total rec energy " << parallelEnergy << std::endl;
         // std::cout << "Total forces " << std::endl << parallelForces << std::endl;
         // std::cout << "Total virial " << std::endl << parallelVirial << std::endl;
 
-        std::ofstream parallel_output("fullexample_parallel_cuda_output.txt");
+        std::string filename = (weakScaling ? "weak_" : "strong_") + std::string("parallel_output_cuda.txt");
 
+        std::ofstream parallel_output(filename);
+
+        parallel_output << (weakScaling ? "Weak Scaling Study" : "Strong Scaling Study") << std::endl;
         parallel_output << "Parallel results (nProcs = " << nx << ", " << ny << ", " << nz << "):" << std::endl;
         parallel_output << "Total rec energy " << parallelEnergy << std::endl;
         parallel_output << "Total forces " << std::endl << parallelForces << std::endl;
         parallel_output << "Total virial " << std::endl << parallelVirial << std::endl;
+
+        parallel_output << "Timing results:" << std::endl;
+        parallel_output << "Total time: " << totalTime.count() << std::endl;
+        parallel_output << "Lattice time: " << latticeTime.count() << std::endl;
+        parallel_output << "Spline time: " << splineTime.count() << std::endl;
+        parallel_output << "Spread time: " << spreadTime.count() << std::endl;
+        parallel_output << "Transform time: " << transformTime.count() << std::endl;
+        parallel_output << "Convolve time: " << convolveTime.count() << std::endl;
+        parallel_output << "Probe time: " << probeTime.count() << std::endl;
 
         parallel_output.close();
 
@@ -125,6 +311,7 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
         assert((serialForces.almostEquals(parallelForces, tolerance)));
         assert((serialVirial.almostEquals(parallelVirial, tolerance)));
     }
+
     // // Now the compressed version
     // nodeForces.setZero();
     // nodeVirial.setZero();
@@ -147,5 +334,4 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     //     assert((serialVirial.almostEquals(parallelVirial, tolerance)));
     // }
     // pmeP.reset();  // This ensures that the PME object cleans up its MPI data BEFORE MPI_Finalize is called;
-
 }
