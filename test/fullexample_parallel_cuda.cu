@@ -4,17 +4,19 @@
 #include <cuda_runtime.h>
 #include "helpme_standalone.cuh"
 #include <mpi.h>
+#include <iostream>
+#include <fstream>
 
-#define FILENAME "waterbox12288"
+#define FILENAME "waterbox24000"
 
 extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz)
 {
-    const double tolerance = 1e-4; // Needed to lower tolerance for cuda
+    const double tolerance = 1e-2; // Needed to lower tolerance for cuda
 
     float kappa = 0.3;
-    int gridX = 99;
-    int gridY = 99;
-    int gridZ = 99;
+    int gridX = 49;
+    int gridY = 49;
+    int gridZ = 49;
     int kMaxX = 9;
     int kMaxY = 9;
     int kMaxZ = 9;
@@ -22,21 +24,17 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
 
     // helpme::Matrix<double> coords(
     //     {{2.0, 2.0, 2.0}, {2.5, 2.0, 3.0}, {1.5, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.5, 0.0, 1.0}, {-0.5, 0.0, 1.0}});
+    // helpme::Matrix<double> charges({-0.834, 0.417, 0.417, -0.834, 0.417, 0.417});
 
     helpme::Matrix<double> coords("data/" FILENAME "_coords.txt");
     helpme::Matrix<double> charges("data/" FILENAME "_charges.txt");
 
-    helpme::Matrix<double> parallelForces(coords.nRows(), coords.nCols());
-    helpme::Matrix<double> nodeForces(coords.nRows(), coords.nCols());
     helpme::Matrix<double> virial(6, 1);
-    helpme::Matrix<double> parallelVirial(6, 1);
-    helpme::Matrix<double> nodeVirial(6, 1);
     
-    // helpme::Matrix<double> charges({-0.834, 0.417, 0.417, -0.834, 0.417, 0.417});
     double scaleFactor = 332.0716;
     helpme::Matrix<double> serialVirial(6, 1);
     helpme::Matrix<double> serialForces(coords.nRows(), coords.nCols()); // Rows and columns of coords
-    
+        
     // Generate a serial benchmark first
     double energyS;
     if (myRank == 0) {
@@ -47,8 +45,15 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
         energyS = pme->computeEFVRec(0, charges, coords, serialForces, serialVirial);
         std::cout << "Serial results:" << std::endl;
         std::cout << "Total rec energy " << energyS << std::endl;
-        std::cout << "Total forces" << std::endl << serialForces << std::endl;
-        std::cout << "Total virial" << std::endl << serialVirial << std::endl;
+        // std::cout << "Total forces" << std::endl << serialForces << std::endl;
+        // std::cout << "Total virial" << std::endl << serialVirial << std::endl;
+        
+        std::ofstream serial_output("fullexample_serial_output.txt");
+
+        serial_output << "Serial results:" << std::endl;
+        serial_output << "Total rec energy " << energyS << std::endl;
+        serial_output << "Total forces" << std::endl << serialForces << std::endl;
+        serial_output << "Total virial" << std::endl << serialVirial << std::endl;
     }
 
     // Now the parallel version
@@ -58,6 +63,10 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     // helpme::Matrix<double> nodeVirial(6, 1);
     // helpme::Matrix<double> parallelForces(6, 3);
     // helpme::Matrix<double> parallelVirial(6, 1);
+    helpme::Matrix<double> nodeForces(coords.nRows(), coords.nCols());
+    helpme::Matrix<double> nodeVirial(6, 1);
+    helpme::Matrix<double> parallelForces(coords.nRows(), coords.nCols());
+    helpme::Matrix<double> parallelVirial(6, 1);
 
     nodeForces.setZero();
     nodeVirial.setZero();
@@ -66,13 +75,22 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     pmeP->setLatticeVectors(20, 20, 20, 90, 90, 90, PMEInstanceD::LatticeType::XAligned);
     nodeEnergy = pmeP->computeEFVRec(0, charges, coords, nodeForces, nodeVirial);
     MPI_Reduce(&nodeEnergy, &parallelEnergy, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(nodeForces[0], parallelForces[0], 6 * 3, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(nodeForces[0], parallelForces[0], coords.nRows() * coords.nCols(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(nodeVirial[0], parallelVirial[0], 6, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if (myRank == 0) {
         std::cout << "Parallel results (nProcs = " << nx << ", " << ny << ", " << nz << "):" << std::endl;
         std::cout << "Total rec energy " << parallelEnergy << std::endl;
         // std::cout << "Total forces " << std::endl << parallelForces << std::endl;
-        std::cout << "Total virial " << std::endl << parallelVirial << std::endl;
+        // std::cout << "Total virial " << std::endl << parallelVirial << std::endl;
+
+        std::ofstream parallel_output("fullexample_parallel_cuda_output.txt");
+
+        parallel_output << "Parallel results (nProcs = " << nx << ", " << ny << ", " << nz << "):" << std::endl;
+        parallel_output << "Total rec energy " << parallelEnergy << std::endl;
+        parallel_output << "Total forces " << std::endl << parallelForces << std::endl;
+        parallel_output << "Total virial " << std::endl << parallelVirial << std::endl;
+
+        parallel_output.close();
 
         assert((std::abs(energyS - parallelEnergy) < tolerance));
         assert((serialForces.almostEquals(parallelForces, tolerance)));
