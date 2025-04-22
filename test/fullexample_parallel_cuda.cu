@@ -77,6 +77,35 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     MPI_Reduce(&nodeEnergy, &parallelEnergy, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(nodeForces[0], parallelForces[0], coords.nRows() * coords.nCols(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(nodeVirial[0], parallelVirial[0], 6, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    MPI_File fh;
+    MPI_File_open(MPI_COMM_WORLD, "output",
+        MPI_MODE_CREATE | MPI_MODE_WRONLY,
+        MPI_INFO_NULL, &fh);
+
+
+    std::string beginner = "Force Outputs:\n";
+
+
+    char check[100];
+    std::string cs = std::to_string(*nodeForces[0])+'\n';
+    strcpy(check, cs.c_str());
+    std::cout << check << std::endl;
+    int local_len = strlen(check);
+
+
+    MPI_Status status;
+    MPI_Offset offset = 0;
+    MPI_Exscan(&local_len, &offset, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+
+    if (myRank == 0) offset = 0;  
+
+
+    MPI_File_write_at(fh, offset, check, strlen(check), MPI_CHAR, &status);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_File_close(&fh);
+
     if (myRank == 0) {
         std::cout << "Parallel results (nProcs = " << nx << ", " << ny << ", " << nz << "):" << std::endl;
         std::cout << "Total rec energy " << parallelEnergy << std::endl;
