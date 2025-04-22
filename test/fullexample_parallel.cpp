@@ -145,7 +145,7 @@ void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz
         // std::cout << "Total forces" << std::endl << serialForces << std::endl;
         // std::cout << "Total virial" << std::endl << serialVirial << std::endl;
 
-        std::string filename = (weakScaling ? "weak_" : "strong_") + std::string("serial_output_cpp.txt");
+        std::string filename = (weakScaling ? "weak_" : "strong_") + std::to_string(numRanks)+std::string("_serial_output_cpp.txt");
         std::ofstream serial_output(filename);
 
         serial_output << (weakScaling ? "Weak Scaling Study" : "Strong Scaling Study") << std::endl;
@@ -274,7 +274,7 @@ void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz
         // std::cout << "Total forces " << std::endl << parallelForces << std::endl;
         // std::cout << "Total virial " << std::endl << parallelVirial << std::endl;
 
-        std::string filename = (weakScaling ? "weak_" : "strong_") + std::string("parallel_output_cpp.txt");
+        std::string filename = (weakScaling ? "weak_" : "strong_") + std::to_string(numRanks)+ std::string("_parallel_output_cpp.txt");
 
         std::ofstream parallel_output(filename);
 
