@@ -145,8 +145,6 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
         
         std::cout << "Serial results:" << std::endl;
         std::cout << "Total rec energy " << energyS << std::endl;
-        // std::cout << "Total forces" << std::endl << serialForces << std::endl;
-        // std::cout << "Total virial" << std::endl << serialVirial << std::endl;
 
         std::string filename = (weakScaling ? "weak_" : "strong_") + std::to_string(numRanks)+std::string("_serial_output_cuda.txt");
         std::ofstream serial_output(filename);
