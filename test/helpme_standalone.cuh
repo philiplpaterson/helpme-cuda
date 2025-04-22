@@ -44,6 +44,8 @@
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 #include "pain.cu"
+#include <cufftXt.h>
+#include <cufft.h>
 
 
 // original file: src/cartesiantransform.h
@@ -417,7 +419,8 @@ std::string stringify(T *data, size_t size, size_t rowDim, int width = 14, int p
 #include <stdexcept>
 #include <vector>
 
-#include <fftw3.h>
+// #include <fftw3.h>
+#include <cufftw.h>
 
 namespace helpme {
 
@@ -1205,7 +1208,8 @@ Matrix<Real> cartesianTransform(int maxAngularMomentum, bool transformOnlyThisSh
 #include <stdexcept>
 #include <type_traits>
 
-#include <fftw3.h>
+// #include <fftw3.h>
+#include <cufftw.h>
 // #include "memory.h"
 
 namespace helpme {
@@ -4245,10 +4249,7 @@ class PMEInstance {
 
                 cudaMalloc(reinterpret_cast<void **>(&d_work), sizeof(double) * lwork);
 
-                
-                
                 cusolverDnDsyevd(cusolverH, jobz, uplo, m, d_A, lda, d_W, d_work, lwork, d_info);
-
             
                 // cudaMemcpy(V.data(), d_A, sizeof(double) * V.size(), cudaMemcpyDeviceToHost);
             
@@ -4320,6 +4321,80 @@ class PMEInstance {
         }
     }
 
+    // //******OLD SET LATTICE VECTORS******/
+    // /*!
+    //  * \brief Sets the unit cell lattice vectors, with units consistent with those used to specify coordinates.
+    //  * \param A the A lattice parameter in units consistent with the coordinates.
+    //  * \param B the B lattice parameter in units consistent with the coordinates.
+    //  * \param C the C lattice parameter in units consistent with the coordinates.
+    //  * \param alpha the alpha lattice parameter in degrees.
+    //  * \param beta the beta lattice parameter in degrees.
+    //  * \param gamma the gamma lattice parameter in degrees.
+    //  * \param latticeType how to arrange the lattice vectors.  Options are
+    //  * ShapeMatrix: enforce a symmetric representation of the lattice vectors [c.f. S. Nosé and M. L. Klein,
+    //  *              Mol. Phys. 50 1055 (1983)] particularly appendix C.
+    //  * XAligned: make the A vector coincide with the X axis, the B vector fall in the XY plane, and the C vector
+    //  *           take the appropriate alignment to completely define the system.
+    //  */
+    // void setLatticeVectors(Real A, Real B, Real C, Real alpha, Real beta, Real gamma, LatticeType latticeType) {
+    //     if (A != cellA_ || B != cellB_ || C != cellC_ || alpha != cellAlpha_ || beta != cellBeta_ ||
+    //         gamma != cellGamma_ || latticeType != latticeType_) {
+    //         if (latticeType == LatticeType::ShapeMatrix) {
+    //             RealMat HtH(3, 3);
+    //             HtH(0, 0) = A * A;
+    //             HtH(1, 1) = B * B;
+    //             HtH(2, 2) = C * C;
+    //             const float TOL = 1e-4f;
+    //             // Check for angles very close to 90, to avoid noise from the eigensolver later on.
+    //             HtH(0, 1) = HtH(1, 0) = std::abs(gamma - 90) < TOL ? 0 : A * B * std::cos(HELPME_PI * gamma / 180);
+    //             HtH(0, 2) = HtH(2, 0) = std::abs(beta - 90) < TOL ? 0 : A * C * std::cos(HELPME_PI * beta / 180);
+    //             HtH(1, 2) = HtH(2, 1) = std::abs(alpha - 90) < TOL ? 0 : B * C * std::cos(HELPME_PI * alpha / 180);
+
+    //             auto eigenTuple = HtH.diagonalize();
+    //             RealMat evalsReal = std::get<0>(eigenTuple);
+    //             RealMat evecs = std::get<1>(eigenTuple);
+    //             for (int i = 0; i < 3; ++i) evalsReal(i, 0) = sqrt(evalsReal(i, 0));
+    //             boxVecs_.setZero();
+    //             for (int i = 0; i < 3; ++i) {
+    //                 for (int j = 0; j < 3; ++j) {
+    //                     for (int k = 0; k < 3; ++k) {
+    //                         boxVecs_(i, j) += evecs(i, k) * evecs(j, k) * evalsReal(k, 0);
+    //                     }
+    //                 }
+    //             }
+    //             recVecs_ = boxVecs_.inverse();
+    //         } else if (latticeType == LatticeType::XAligned) {
+    //             boxVecs_(0, 0) = A;
+    //             boxVecs_(0, 1) = 0;
+    //             boxVecs_(0, 2) = 0;
+    //             boxVecs_(1, 0) = B * std::cos(HELPME_PI / 180 * gamma);
+    //             boxVecs_(1, 1) = B * std::sin(HELPME_PI / 180 * gamma);
+    //             boxVecs_(1, 2) = 0;
+    //             boxVecs_(2, 0) = C * std::cos(HELPME_PI / 180 * beta);
+    //             boxVecs_(2, 1) =
+    //                 (B * C * cos(HELPME_PI / 180 * alpha) - boxVecs_(2, 0) * boxVecs_(1, 0)) / boxVecs_(1, 1);
+    //             boxVecs_(2, 2) = std::sqrt(C * C - boxVecs_(2, 0) * boxVecs_(2, 0) - boxVecs_(2, 1) * boxVecs_(2, 1));
+    //         } else {
+    //             throw std::runtime_error("Unknown lattice type in setLatticeVectors");
+    //         }
+    //         recVecs_ = boxVecs_.inverse();
+    //         scaledRecVecs_ = recVecs_.clone();
+    //         scaledRecVecs_.row(0) *= gridDimensionA_;
+    //         scaledRecVecs_.row(1) *= gridDimensionB_;
+    //         scaledRecVecs_.row(2) *= gridDimensionC_;
+    //         cellA_ = A;
+    //         cellB_ = B;
+    //         cellC_ = C;
+    //         cellAlpha_ = alpha;
+    //         cellBeta_ = beta;
+    //         cellGamma_ = gamma;
+    //         latticeType_ = latticeType;
+    //         unitCellHasChanged_ = true;
+    //     } else {
+    //         unitCellHasChanged_ = false;
+    //     }
+    // }
+
     /*!
      * \brief Performs the forward 3D FFT of the discretized parameter grid using the compressed PME algorithm.
      * \param realGrid the array of discretized parameters (stored in CBA order,
@@ -4384,15 +4459,33 @@ class PMEInstance {
     Complex *forwardTransform(Real *realGrid) {
         Real *__restrict__ realCBA;
         Complex *__restrict__ buffer1, *__restrict__ buffer2;
+        size_t buffer1Size, buffer2Size;
         if (realGrid == reinterpret_cast<Real *>(workSpace1_.data())) {
             realCBA = reinterpret_cast<Real *>(workSpace2_.data());
             buffer1 = workSpace2_.data();
             buffer2 = workSpace1_.data();
+
+            // NOTE: Our addition
+            buffer1Size = workSpace2_.size();
+            buffer2Size = workSpace1_.size();
         } else {
             realCBA = reinterpret_cast<Real *>(workSpace1_.data());
             buffer1 = workSpace1_.data();
             buffer2 = workSpace2_.data();
+
+            // NOTE: Our addition
+            buffer1Size = workSpace1_.size();
+            buffer2Size = workSpace2_.size();
         }
+        
+        // printf("~~~~Buffer elements:\n");
+        // for (unsigned int i = 0; i < buffer1Size && i < 1000; ++i) {
+        //     printf("%.2lf, %.2lf | ", (buffer1 + i)->real(), (buffer1 + i)->imag());
+        //     if (i + 1 % 14 == 0) {
+        //         printf("\n");
+        //     }
+        // }
+        // printf("\n");
 
 #if HAVE_MPI == 1
         if (numNodesA_ > 1) {
@@ -4528,6 +4621,15 @@ class PMEInstance {
             fftHelperC_.transform(buffer2 + ba * gridDimensionC_, FFTW_FORWARD);
         }
 
+        // printf("~~~~Buffer 2 elements:\n");
+        // for (unsigned int i = 0; i < buffer2Size && i < 1000; ++i) {
+        //     printf("%.2lf, %.2lf | ", (buffer2 + i)->real(), (buffer2 + i)->imag());
+        //     if (i + 1 % 14 == 0) {
+        //         printf("\n");
+        //     }
+        // }
+        // printf("\n");
+
         return buffer2;
     }
 
@@ -4547,6 +4649,15 @@ class PMEInstance {
             buffer1 = workSpace1_.data();
             buffer2 = workSpace2_.data();
         }
+
+        // printf("~~~~Convolved elements:\n");
+        // for (unsigned int i = 0; i < workSpace2_.size() && i < 1000; ++i) {
+        //     printf("%.2lf, %.2lf | ", (convolvedGrid + i)->real(), (convolvedGrid + i)->imag());
+        //     if (i + 1 % 14 == 0) {
+        //         printf("\n");
+        //     }
+        // }
+        // printf("\n");
 
         // C transform
         size_t numYX = (size_t)subsetOfBAlongC_ * myComplexGridDimensionA_;
@@ -4677,8 +4788,113 @@ class PMEInstance {
             mpiCommunicatorA_->allToAll(realGrid2, realGrid, subsetOfCAlongA_ * myGridDimensionB_ * myGridDimensionA_);
         }
 #endif
+        // printf("~~~~Real grid elements:\n");
+        // for (unsigned int i = 0; i < workSpace1_.size() && i < 1000; ++i) {
+        //     printf("%.2lf | ", *(realGrid + i));
+        //     if (i + 1 % 14 == 0) {
+        //         printf("\n");
+        //     }
+        // }
+        // printf("\n");
+        
+        
         return realGrid;
     }
+
+    // /*!
+    //  * \brief Performs the forward 3D FFT of the discretized parameter grid.
+    //  * \param realGrid the array of discretized parameters (stored in CBA order,
+    //  *                 with A being the fast running index) to be transformed.
+    //  * \return Pointer to the transformed grid, which is stored in one of the buffers in BAC order.
+    //  */
+    //  Complex *forwardTransformCUDA(Real *realGrid) {
+    //     printf("Running forwardTransformCUDA\n");
+
+    //     Real *__restrict__ realCBA;
+    //     Complex *__restrict__ buffer1, *__restrict__ buffer2;
+    //     size_t buffer1Size, buffer2Size;
+    //     if (realGrid == reinterpret_cast<Real *>(workSpace1_.data())) {
+    //         realCBA = reinterpret_cast<Real *>(workSpace2_.data());
+    //         buffer1 = workSpace2_.data();
+    //         buffer2 = workSpace1_.data();
+
+    //         // NOTE: Our addition
+    //         buffer1Size = workSpace2_.size();
+    //         buffer2Size = workSpace1_.size();
+    //     } else {
+    //         realCBA = reinterpret_cast<Real *>(workSpace1_.data());
+    //         buffer1 = workSpace1_.data();
+    //         buffer2 = workSpace2_.data();
+
+    //         // NOTE: Our addition
+    //         buffer1Size = workSpace1_.size();
+    //         buffer2Size = workSpace2_.size();
+    //     }
+
+    //     // printf("~~~~Real grid elements:\n");
+    //     // for (unsigned int i = 0; i < buffer2Size && i < 1000; ++i) {
+    //     //     printf("%.2lf | ", *(realGrid + i));
+    //     //     if (i + 1 % 14 == 0) {
+    //     //         printf("\n");
+    //     //     }
+    //     // }
+    //     // printf("\n");
+        
+    //     cufftResult result;
+    //     cufftHandle plan;
+
+    //     printf("Making plan with dimensions x (C): %d, y (B): %d, z (A): %d\n", gridDimensionA_, gridDimensionB_, gridDimensionC_);
+    //     printf("buffer1 size: %lu, buffer2 size: %lu\n", buffer1Size, buffer2Size);
+    //     result = cufftPlan3d(&plan, gridDimensionC_, gridDimensionB_, gridDimensionA_, CUFFT_Z2Z);
+    //     if (result != CUFFT_SUCCESS) {
+    //       printf("*MakePlan* failed\n");
+    //       exit(EXIT_FAILURE);
+    //     }
+        
+    //     Complex* d_buffer1;
+    //     Complex* d_buffer2;
+    //     cudaMallocManaged(reinterpret_cast<void **>(&d_buffer1), buffer1Size);
+    //     cudaMallocManaged(reinterpret_cast<void **>(&d_buffer2), buffer2Size);
+    //     cudaMemcpy(d_buffer1, buffer1, buffer1Size, cudaMemcpyHostToDevice);
+    //     cudaMemcpy(d_buffer2, buffer2, buffer2Size, cudaMemcpyHostToDevice);
+
+    //     cudaMemcpy(buffer2, d_buffer2, buffer2Size, cudaMemcpyDeviceToHost);
+        
+    //     // printf("~~~~Buffer 2 elements:\n");
+    //     // for (unsigned int i = 0; i < buffer2Size && i < 1000; ++i) {
+    //     //     printf("%.2lf, %.2lf | ", (buffer2 + i)->real(), (buffer2 + i)->imag());
+    //     //     if (i + 1 % 14 == 0) {
+    //     //         printf("\n");
+    //     //     }
+    //     // }
+    //     // printf("\n");
+
+    //     cufftDoubleComplex * cufftBuffer1 = reinterpret_cast<cufftDoubleComplex *>(d_buffer1);
+    //     cufftDoubleComplex * cufftBuffer2 = reinterpret_cast<cufftDoubleComplex *>(d_buffer2);
+    //     cufftExecZ2Z(plan, cufftBuffer2, cufftBuffer1, CUFFT_FORWARD); // TODO: LEft off here for cuda exec
+
+    //     cudaMemcpy(buffer1, d_buffer1, buffer1Size, cudaMemcpyDeviceToHost);
+
+    //     permuteABCtoACB(buffer1, myGridDimensionC_, myGridDimensionB_, myComplexGridDimensionA_, buffer2, nThreads_); // CBA Becomes CAB
+    //     permuteABCtoCBA(buffer2, myGridDimensionC_, myComplexGridDimensionA_, myGridDimensionB_, buffer1, nThreads_); // CAB becomes BAC
+
+    //     // permuteABCtoACB(buffer1, gridDimensionC_, gridDimensionB_, gridDimensionA_, buffer2, nThreads_); // CBA Becomes CAB
+    //     // permuteABCtoCBA(buffer2, gridDimensionC_, gridDimensionA_, gridDimensionB_, buffer1, nThreads_); // CAB becomes BAC
+
+    //     printf("~~~~Buffer 1 elements:\n");
+    //     for (unsigned int i = 0; i < buffer1Size && i < 1000; ++i) {
+    //         printf("%.2lf, %.2lf | ", (buffer1 + i)->real(), (buffer1 + i)->imag());
+    //         if (i + 1 % 14 == 0) {
+    //             printf("\n");
+    //         }
+    //     }
+    //     printf("\n");
+
+    //     cufftDestroy(plan);
+    //     cudaFree(d_buffer1);
+    //     cudaFree(d_buffer2);
+    //     return buffer1; // Used to be buffer2 returns I think ??
+    //  }
 
     /*!
      * \brief Performs the backward 3D FFT of the discretized parameter grid using the compressed PME algorithm.
@@ -5521,7 +5737,7 @@ class PMEInstance {
      * \return the reciprocal space energy.
      */
     Real computeEFVRec(int parameterAngMom, const RealMat &parameters, const RealMat &coordinates, RealMat &forces,
-                       RealMat &virial) {
+                       RealMat &virial, bool useCuda = false) {
         sanityChecks(parameterAngMom, parameters, coordinates);
 
         // Spline derivative level bumped by 1, for energy gradients.
@@ -5531,7 +5747,12 @@ class PMEInstance {
 
         Real energy;
         if (algorithmType_ == AlgorithmType::PME) {
-            auto gridAddress = forwardTransform(realGrid);
+            Complex *gridAddress;
+            if (useCuda) {
+                // gridAddress = forwardTransformCUDA(realGrid);
+            } else{
+                gridAddress = forwardTransform(realGrid);
+            }
             energy = convolveEV(gridAddress, virial);
             auto potentialGrid = inverseTransform(gridAddress);
             probeGrid(potentialGrid, parameterAngMom, parameters, forces, virial[0]);
