@@ -24014,10 +24014,10 @@ Total virial
 
 
 Timing results:
-Total time: 4.15098
-Lattice time: 1.7614e-05
-Spline time: 0.0833583
-Spread time: 0.0271664
-Transform time: 1.97835
-Convolve time: 0.145823
-Probe time: 2.13981
+Total time: 3.17978
+Lattice time: 8.954e-06
+Spline time: 0.0587688
+Spread time: 0.0183459
+Transform time: 1.46429
+Convolve time: 0.128845
+Probe time: 1.71015
