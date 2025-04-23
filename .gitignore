@@ -14,3 +14,4 @@ helPME.cxxflags
 *code-workspace
 *.o
 test/CMakeFiles
+.venv
