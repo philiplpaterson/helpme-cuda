@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <chrono>
+#include <cstring>
 
 #if BUILD_STANDALONE
 #include "helpme_standalone.h"
@@ -19,9 +20,9 @@
 #include "../src/helpme.h"
 #endif
 
-#define FILENAME "waterbox24000"
+// #define FILENAME "waterbox24000"
 
-void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling) {
+void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling, std::string &FILENAME, int urmom) {
     const double tolerance = 1e-1;  // Needed to lower tolerance for cuda
 
     int nodes = nx * ny * nz;
@@ -48,19 +49,22 @@ void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz
 
     // ur_mom scales based on the cube root of the ranks
 
-    int ur_mom;
-    if (weakScaling) {
-        ur_mom = 200 * std::pow(numRanks, 1.0 / 3.0);
-        std::cout << "ur_mom: " << ur_mom << std::endl;
-    } else {
-        ur_mom = 200;
-    }
-    int gridX = ur_mom;
-    int gridY = ur_mom;
-    int gridZ = ur_mom;
+    // int ur_mom;
+    // if (weakScaling) {
+    //     ur_mom = 200 * std::pow(numRanks, 1.0 / 3.0);
+    //     std::cout << "ur_mom: " << ur_mom << std::endl;
+    // } else {
+    //     ur_mom = 200;
+    // }
+    // int gridX = ur_mom;
+    // int gridY = ur_mom;
+    // int gridZ = ur_mom;
     // int kMaxX = 9;
     // int kMaxY = 9;
     // int kMaxZ = 9;
+    int gridX = urmom;
+    int gridY = urmom;
+    int gridZ = urmom;
     int splineOrder = 6;
 
     // timing stuff
@@ -79,8 +83,8 @@ void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz
     // start total timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    helpme::Matrix<double> coords("data/" FILENAME "_coords.txt");
-    helpme::Matrix<double> charges("data/" FILENAME "_charges.txt");
+    helpme::Matrix<double> coords("data/" +FILENAME+ "_coords.txt");
+    helpme::Matrix<double> charges("data/" +FILENAME+ "_charges.txt");
 
     helpme::Matrix<double> virial(6, 1);
 
@@ -306,11 +310,15 @@ int main(int argc, char* argv[]) {
     int ny;
     int nz;
     int numThreads;
-    if (argc == 5) {
+    std::string filename;
+    int gridsize;
+    if (argc == 7) {
         nx = atoi(argv[1]);
         ny = atoi(argv[2]);
         nz = atoi(argv[3]);
         numThreads = atoi(argv[4]);
+        filename = argv[5];
+        gridsize= atoi(argv[6]);
     } else {
         printf(
             "This test should be run with exactly 4 arguments describing the number of X,Y and Z nodes and number of "
@@ -325,12 +333,12 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
     // weak scaling
-    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true);
+    // run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true, filename, gridsize);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
 
     // strong scaling
-    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false);
+    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false, filename, gridsize);
 
     MPI_Finalize();
 

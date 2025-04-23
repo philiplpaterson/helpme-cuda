@@ -1,8 +1,8 @@
 import os
 import sys
-from simtk import unit
-from simtk.openmm import app
-from simtk import openmm
+
+from openmm import unit
+from openmm import app, openmm
 
 # TIP3P parameters
 charges = "-0.834 0.417 0.417\n"
@@ -25,7 +25,7 @@ def find_grid_size(min_size):
         current_size += 1
 
 # There are dim X dim X dim molecules in the box
-for dim in range(16, 60, 4):
+for dim in range(100, 150, 4):
     n_waters = dim**3
     n_atoms = 3*n_waters
     print('Generating waterbox%d...' % n_atoms)

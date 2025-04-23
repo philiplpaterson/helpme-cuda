@@ -9,9 +9,9 @@
 #include <fstream>
 #include <chrono>
 
-#define FILENAME "waterbox24000"
+// #define FILENAME "waterbox24000"
 
-extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling) {
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling, std::string &FILENAME, int urmom) {
     const double tolerance = 1e-1;  // Needed to lower tolerance for cuda
 
     int nodes = nx * ny * nz;
@@ -51,16 +51,20 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
 
     // ur_mom scales based on the cube root of the ranks
 
-    int ur_mom;
-    if (weakScaling) {
-        ur_mom = 10 * std::pow(numRanks, 1.0 / 3.0);
-        std::cout << "ur_mom: " << ur_mom << std::endl;
-    } else {
-        ur_mom = 100;
-    }
-    int gridX = ur_mom;
-    int gridY = ur_mom;
-    int gridZ = ur_mom;
+    // int ur_mom;
+    // if (weakScaling) {
+    //     ur_mom = 10 * std::pow(numRanks, 1.0 / 3.0);
+    //     std::cout << "ur_mom: " << ur_mom << std::endl;
+    // } else {
+    //     ur_mom = 100;
+    // }
+    int gridX = urmom;
+    int gridY = urmom;
+    int gridZ = urmom;
+
+
+
+
     // int kMaxX = 9;
     // int kMaxY = 9;
     // int kMaxZ = 9;
@@ -82,8 +86,10 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     // start total timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    helpme::Matrix<double> coords("data/" FILENAME "_coords.txt");
-    helpme::Matrix<double> charges("data/" FILENAME "_charges.txt");
+    std::cout<<FILENAME<<" "<<urmom<<std::endl;
+
+    helpme::Matrix<double> coords("data/" +FILENAME+ "_coords.txt");
+    helpme::Matrix<double> charges("data/" +FILENAME +"_charges.txt");
 
     helpme::Matrix<double> virial(6, 1);
 

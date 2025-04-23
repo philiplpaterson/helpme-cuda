@@ -21,18 +21,23 @@
 
 #define TIME_COMPONENTS 1
 
-extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling);
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling, std::string &filename, int urmom);
 
 int main(int argc, char* argv[]) {
     int nx;
     int ny;
     int nz;
     int numThreads;
-    if (argc == 5) {
+    std::string filename;
+    int gridsize;
+    if (argc == 7) {
         nx = atoi(argv[1]);
         ny = atoi(argv[2]);
         nz = atoi(argv[3]);
         numThreads = atoi(argv[4]);
+        filename = argv[5];
+        gridsize= atoi(argv[6]);
+
     } else {
         // printf(
         //     "This test should be run with exactly 4 arguments describing the number of X,Y and Z nodes and number of "
@@ -59,12 +64,12 @@ int main(int argc, char* argv[]) {
     printf("test2\n");
 
     // weak scaling
-    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true);
+    // run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true, filename, gridsize);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
 
     // strong scaling
-    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false);
+    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false, filename, gridsize);
 
     // const double tolerance = 1e-8;
 
