@@ -11,7 +11,7 @@
 
 // #define FILENAME "waterbox24000"
 
-extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling, std::string &FILENAME, int urmom) {
+extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz, bool weakScaling, std::string &FILENAME, int gridSideDim) {
     const double tolerance = 1e-1;  // Needed to lower tolerance for cuda
 
     int nodes = nx * ny * nz;
@@ -27,6 +27,8 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     // the total problem size will change and the number of nodes will increase
     // problem size: 100,000 atoms/node
     // i.e. 1, 8, 27, 64, 125, 216, 343, 512 * 100,000 atoms
+
+    // For now, we are stopping at 125 ranks. Therefore, 
 
     // set device according to the rank of the process
 
@@ -47,7 +49,7 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     // get total number of ranks
     int numRanks;
     MPI_Comm_size(MPI_COMM_WORLD, &numRanks);
-
+    assert(nodes == numRanks);
 
     // ur_mom scales based on the cube root of the ranks
 
@@ -58,12 +60,9 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     // } else {
     //     ur_mom = 100;
     // }
-    int gridX = urmom;
-    int gridY = urmom;
-    int gridZ = urmom;
-
-
-
+    int gridX = gridSideDim;
+    int gridY = gridSideDim;
+    int gridZ = gridSideDim;
 
     // int kMaxX = 9;
     // int kMaxY = 9;
@@ -86,10 +85,19 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     // start total timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::cout<<FILENAME<<" "<<urmom<<std::endl;
+    std::cout<<FILENAME<<" "<<gridSideDim<<std::endl;
 
-    helpme::Matrix<double> coords("data/" +FILENAME+ "_coords.txt");
-    helpme::Matrix<double> charges("data/" +FILENAME +"_charges.txt");
+    helpme::Matrix<double> coords;
+    helpme::Matrix<double> charges;
+    if (weakScaling) {
+        coords = helpme::Matrix<double>("data/" +FILENAME+ "_coords.txt", 5);
+        charges = helpme::Matrix<double>("data/" +FILENAME +"_charges.txt", 5);
+        std::cout << coords << std::endl;
+        std::cout << charges << std::endl;
+    } else {
+        coords = helpme::Matrix<double>("data/" +FILENAME+ "_coords.txt");
+        charges = helpme::Matrix<double>("data/" +FILENAME +"_charges.txt");
+    }
 
     helpme::Matrix<double> virial(6, 1);
 

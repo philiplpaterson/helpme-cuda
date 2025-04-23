@@ -699,6 +699,46 @@ class Matrix {
     }
 
     /*!
+     * \brief Matrix Constructs a new matrix, allocating memory.
+     * \param filename the ASCII file from which to read this matrix
+     * \param maxRows is the maximum number of rows to read
+     */
+    Matrix(const std::string& filename, size_t maxRows) {
+        Real tmp;
+        std::ifstream inFile(filename);
+
+        if (!inFile) {
+            std::string msg("Unable to open file ");
+            msg += filename;
+            throw std::runtime_error(msg);
+        }
+
+        inFile >> nRows_; // Ignore this line
+        inFile >> nCols_;
+
+        size_t r;
+        // Read in only up to maxRows
+        for (r = 0; inFile >> tmp && (r / 3) < maxRows; ++r) {
+            allocatedData_.push_back(tmp);
+        }
+        inFile.close();
+
+        nRows_ = allocatedData_.size() / 3;
+
+        assert(nRows_ == r / 3);
+
+        if (nRows_ * nCols_ != allocatedData_.size()) {
+            allocatedData_.clear();
+            std::string msg("Inconsistent dimensions in ");
+            msg += filename;
+            msg += ".  Amount of data inconsitent with declared size.";
+            throw std::runtime_error(msg);
+        }
+        allocatedData_.shrink_to_fit();
+        data_ = allocatedData_.data();
+    }
+
+    /*!
      * \brief Matrix Constructs a new matrix, allocating memory and initializing values using the braced initializer.
      * \param data a braced initializer list of braced initializer lists containing the values to be stored in the
      * matrix.

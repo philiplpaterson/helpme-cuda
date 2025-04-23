@@ -83,8 +83,8 @@ void run_fullexample_parallel(int numThreads, int myRank, int nx, int ny, int nz
     // start total timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    helpme::Matrix<double> coords("data/" +FILENAME+ "_coords.txt");
-    helpme::Matrix<double> charges("data/" +FILENAME+ "_charges.txt");
+    helpme::Matrix<double> coords("data/" + FILENAME+ "_coords.txt");
+    helpme::Matrix<double> charges("data/" + FILENAME+ "_charges.txt");
 
     helpme::Matrix<double> virial(6, 1);
 
