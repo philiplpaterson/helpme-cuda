@@ -7,13 +7,13 @@
 //
 // ENDLICENSE
 
-#define BOX_SIZE_A    63.2290000000
-#define BOX_SIZE_B    63.2290000000
-#define BOX_SIZE_C    63.2290000000
-#define DEFAULT_GRID_A 63
-#define DEFAULT_GRID_B 63
-#define DEFAULT_GRID_C 63
-#define FILENAME "waterbox24000"
+#define BOX_SIZE_A    94.3670000000
+#define BOX_SIZE_B    94.3670000000
+#define BOX_SIZE_C    94.3670000000
+#define DEFAULT_GRID_A 96
+#define DEFAULT_GRID_B 96
+#define DEFAULT_GRID_C 96
+#define FILENAME "waterbox81000"
 
 // Make the benchmark from the generic template
 #include "make_benchmark.hpp"

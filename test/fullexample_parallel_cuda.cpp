@@ -64,12 +64,12 @@ int main(int argc, char* argv[]) {
     printf("test2\n");
 
     // weak scaling
-    // run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true, filename, gridsize);
+    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, true, filename, gridsize);
 
     // MPI_Barrier(MPI_COMM_WORLD);
 
     // strong scaling
-    run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false, filename, gridsize);
+    // run_fullexample_parallel(numThreads, myRank, nx, ny, nz, false, filename, gridsize);
 
     // const double tolerance = 1e-8;
 

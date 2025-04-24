@@ -78,6 +78,7 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     std::chrono::duration<double> transformTime;
     std::chrono::duration<double> convolveTime;
     std::chrono::duration<double> probeTime;
+    std::chrono::duration<double> IOTime;
 
     // helpme::Matrix<double> coords(
     //     {{2.0, 2.0, 2.0}, {2.5, 2.0, 3.0}, {1.5, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.5, 0.0, 1.0}, {-0.5, 0.0, 1.0}});
@@ -144,7 +145,7 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
         energyS = energy;
         localEnd = std::chrono::high_resolution_clock::now();
         probeTime += localEnd - localStart;
-
+        
         // record total time
         auto end = std::chrono::high_resolution_clock::now();
         totalTime = end - start;
@@ -179,6 +180,7 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     transformTime = std::chrono::duration<double>(0);
     convolveTime = std::chrono::duration<double>(0);
     probeTime = std::chrono::duration<double>(0);
+    IOTime = std::chrono::duration<double>(0);
 
     // start total timer
     start = std::chrono::high_resolution_clock::now();
@@ -250,12 +252,12 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     MPI_Reduce(nodeForces[0], parallelForces[0], coords.nRows() * coords.nCols(), MPI_DOUBLE, MPI_SUM, 0,
                MPI_COMM_WORLD);
     MPI_Reduce(nodeVirial[0], parallelVirial[0], 6, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
+    localStart = std::chrono::high_resolution_clock::now();
     MPI_File fh;
     MPI_File_open(MPI_COMM_WORLD, "output",
         MPI_MODE_CREATE | MPI_MODE_WRONLY,
         MPI_INFO_NULL, &fh);
-
+    
 
     std::string beginner = "Force Outputs:\n";
 
@@ -278,6 +280,11 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
     MPI_File_write_at(fh, offset, check, strlen(check), MPI_CHAR, &status);
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_File_close(&fh);
+        
+    localEnd = std::chrono::high_resolution_clock::now();
+
+    IOTime = localEnd-localStart;
+
 
     if (myRank == 0) {
         
@@ -308,6 +315,7 @@ extern "C" void run_fullexample_parallel(int numThreads, int myRank, int nx, int
         parallel_output << "Transform time: " << transformTime.count() << std::endl;
         parallel_output << "Convolve time: " << convolveTime.count() << std::endl;
         parallel_output << "Probe time: " << probeTime.count() << std::endl;
+        parallel_output << "IO time: " << IOTime.count() << std::endl;
 
         parallel_output.close();
 

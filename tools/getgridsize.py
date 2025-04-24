@@ -25,7 +25,7 @@ def find_grid_size(min_size):
         current_size += 1
 
 # There are dim X dim X dim molecules in the box
-for dim in range(100, 150, 4):
+for dim in [40, 50]:
     n_waters = dim**3
     n_atoms = 3*n_waters
     print('Generating waterbox%d...' % n_atoms)
