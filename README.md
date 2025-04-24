@@ -74,7 +74,7 @@ helPME is written in C++11, and should work with any modern (well, non-ancient)
 C++ compiler.  Python and Fortran bindings are optional, and are built by
 default.
 
-## RPI Refactorors ##
+## RPI Refactorers ##
 Philip Patterson
 Sarvesh Sundaram
 Ethan Zhang
