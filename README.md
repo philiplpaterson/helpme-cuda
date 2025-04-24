@@ -60,3 +60,21 @@ Andrew C. Simmonett (NIH)
 Lori A. Burns (GA Tech)
 Daniel R. Roe (NIH)
 Bernard R. Brooks (NIH)
+
+## RPI STUDENT EDITS: ##
+
+Our code is based on an entire repository, so since we cannot link the entire repo, or the files we primarily use (due to size), we have attached our repo link:
+
+https://github.com/philiplpaterson/helpme-cuda
+
+
+To clone on Aimos, go into scratch and enter these commands:
+
+export http_proxy=http://proxy:8888
+export https_proxy=$http_proxy
+
+Then clone the repository using git clone. You can use the makefile inside the TEST folder to compile the code. Compilation warnings will show up, but this is from the repository that we altered. 
+
+If you want to run the CUDA+MPI implementation, use runcuda.sh in either weak.sh or strong.sh (depending on if you want to do weak or strong scaling). If you want to do just MPI implementation, use run.sh.
+
+Then, run weak.sh by saying sh weak.sh. This will release jobs into AIMOS to run your code. Output files will appear matching what you just ran. If you go to the bottom of them, you will see the time each function took and the total time taken to run. 
