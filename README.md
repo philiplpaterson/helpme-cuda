@@ -75,7 +75,7 @@ C++ compiler.  Python and Fortran bindings are optional, and are built by
 default.
 
 ## RPI Refactorers ##
-Philip Patterson
+Philip Paterson
 Sarvesh Sundaram
 Ethan Zhang
 Daniel He
